@@ -37,6 +37,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 
 The Addresses for which this work - 
-8 LYNNBROOK ROAD, 06825
-89 LYNNBROOK ROAD, 06825
-6 LILALYN DRIVE, 34957
+8 LYNNBROOK ROAD, 06825\
+89 LYNNBROOK ROAD, 06825\
+6 LILALYN DRIVE, 34957\
