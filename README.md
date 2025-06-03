@@ -36,7 +36,8 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 
-The Addresses for which this work - \
+## The Addresses for which this work
+
 8 LYNNBROOK ROAD, 06825\
 89 LYNNBROOK ROAD, 06825\
 6 LILALYN DRIVE, 34957
