@@ -57,7 +57,11 @@ function extractZipcode(address: string): string | null {
 // Helper function to find parcel URL for a given address in raw content
 function findParcelUrl(searchAddress: string, rawContent: string): string | null {
   // Normalize the search address by removing extra spaces and converting to lowercase
-  const normalizedSearchAddress = searchAddress.toLowerCase().replace(/\s+/g, ' ').trim();
+  const normalizedSearchAddress = searchAddress.toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\s+rd$/i, ' road')  // Normalize RD to ROAD
+    .replace(/,.*$/, '')  // Remove everything after comma (including ZIP)
+    .trim();
   
   // Create variations of the address (with and without spaces)
   const addressVariations = [
@@ -194,7 +198,7 @@ export async function POST(request: Request) {
         {
           "saleDate": "YYYY-MM-DD",
           "salePrice": "$X,XXX,XXX",
-          "buyer": "Buyer Name",
+          "buyer": "Current Owner Name",
           "seller": "Previous Owner Name"
         }
       ]
@@ -206,8 +210,8 @@ export async function POST(request: Request) {
           "type": "Type 2"
         },
         {
-          "address": "The address found in the markdown link",
-          "link": "The complete URL from the markdown link"
+          "address": "8 LYNNBROOK ROAD",
+          "link": "https://gis.vgsi.com/fairfieldct/Parcel.aspx?pid=2271"
         }
       ]
 
@@ -235,7 +239,7 @@ export async function POST(request: Request) {
         messages: [
           {
             role: "system",
-            content: "You are a helpful assistant that extracts structured property transaction data from text. Pay special attention to Ownership History tables. Return the type of condition (Type 1, Type 2, or Type 3) and the data in the format specified."
+            content: "You are a specialized assistant focused on extracting property links and transaction data. For Type 2 responses, carefully look for markdown links containing 'parcel.aspx' and matching house numbers. Pay special attention to the exact format: [ADDRESS](URL) where URL contains 'parcel.aspx'."
           },
           {
             role: "user",
@@ -260,6 +264,39 @@ export async function POST(request: Request) {
         let parsedData = JSON.parse(content);
         console.log('\n=== Parsed AI Response Data ===');
         console.log('Successfully parsed data:', JSON.stringify(parsedData, null, 2));
+
+        // If we got an empty array, try direct link detection
+        if (Array.isArray(parsedData) && parsedData.length === 0 && resultToUse.rawContent) {
+          console.log('\n=== Attempting Direct Link Detection ===');
+          const linkRegex = /\[([^\]]+)\]\((https:\/\/[^)]+parcel\.aspx\?pid=\d+)\)/g;
+          const matches = [...resultToUse.rawContent.matchAll(linkRegex)];
+          
+          const targetAddress = searchAddress.toLowerCase()
+            .replace(/\s+/g, ' ')
+            .replace(/\s+rd$/i, ' road')
+            .replace(/,.*$/, '')
+            .trim();
+
+          console.log('Looking for address:', targetAddress);
+          
+          const matchingLink = matches.find(match => {
+            const linkAddress = match[1].toLowerCase()
+              .replace(/\s+/g, ' ')
+              .trim();
+            return linkAddress === targetAddress;
+          });
+
+          if (matchingLink) {
+            console.log('Found matching link:', matchingLink[0]);
+            parsedData = [
+              { type: "Type 2" },
+              {
+                address: matchingLink[1],
+                link: matchingLink[2]
+              }
+            ];
+          }
+        }
 
         // Check if we have any data and what type it is
         if (Array.isArray(parsedData) && parsedData.length > 0) {
@@ -325,16 +362,24 @@ export async function POST(request: Request) {
               messages: [
                 {
                   role: "system",
-                  content: "You are a helpful assistant that extracts structured property transaction data from text. Pay special attention to Ownership History tables."
+                  content: "You are a specialized assistant focused on extracting property transaction data from Ownership History tables. Your primary task is to find and parse the ownership history table data, which typically includes sale dates, prices, and owner names. Pay special attention to tables labeled as 'Ownership History' or similar variations."
                 },
                 {
                   role: "user",
-                  content: `Extract property sale transactions from the Ownership History table in the following data. Return ONLY an array of transactions in this format:
+                  content: `Find and extract property sale transactions from the Ownership History table in the following data. The table should contain columns for Owner/Buyer, Sale Price, and Sale Date.
+
+                  Format each transaction as follows:
+                  - saleDate should be in YYYY-MM-DD format
+                  - salePrice should include the dollar sign and commas
+                  - buyer should be the name in the Owner column
+                  - seller should be derived from the previous owner in the chronological sequence
+
+                  Return ONLY an array of transactions in this format:
                   [
                     {
                       "saleDate": "YYYY-MM-DD",
                       "salePrice": "$X,XXX,XXX",
-                      "buyer": "Buyer Name",
+                      "buyer": "Current Owner Name",
                       "seller": "Previous Owner Name"
                     }
                   ]
@@ -400,16 +445,24 @@ export async function POST(request: Request) {
               messages: [
                 {
                   role: "system",
-                  content: "You are a helpful assistant that extracts structured property transaction data from text. Pay special attention to Ownership History tables."
+                  content: "You are a specialized assistant focused on extracting property transaction data from Ownership History tables. Your primary task is to find and parse the ownership history table data, which typically includes sale dates, prices, and owner names. Pay special attention to tables labeled as 'Ownership History' or similar variations."
                 },
                 {
                   role: "user",
-                  content: `Extract property sale transactions from the Ownership History table in the following data. Return ONLY an array of transactions in this format:
+                  content: `Find and extract property sale transactions from the Ownership History table in the following data. The table should contain columns for Owner/Buyer, Sale Price, and Sale Date.
+
+                  Format each transaction as follows:
+                  - saleDate should be in YYYY-MM-DD format
+                  - salePrice should include the dollar sign and commas
+                  - buyer should be the name in the Owner column
+                  - seller should be derived from the previous owner in the chronological sequence
+
+                  Return ONLY an array of transactions in this format:
                   [
                     {
                       "saleDate": "YYYY-MM-DD",
                       "salePrice": "$X,XXX,XXX",
-                      "buyer": "Buyer Name",
+                      "buyer": "Current Owner Name",
                       "seller": "Previous Owner Name"
                     }
                   ]
